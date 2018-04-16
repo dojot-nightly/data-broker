@@ -9,7 +9,7 @@ import redis = require('redis');
 import {RedisManager} from './redisManager';
 
 import {KafkaConsumer} from './consumer';
-import {TopicManager} from './topicManager';
+import {TopicManagerBuilder} from './topicManager';
 
 function getKey(token:string): string {
   return 'si:' + token;
@@ -87,6 +87,16 @@ class SocketIOHandler {
       return;
     }
 
+    if (data.hasOwnProperty('metadata')) {
+      if (!data.metadata.hasOwnProperty('deviceid')) {
+        console.error("Received data is not a valid dojot event - has no deviceid");
+        return;
+      }
+    } else {
+      console.error("Received data is not a valid dojot event - has no metadata");
+      return;
+    }
+
     console.log('will publish event [%s] %s', nsp, message.value);
     this.ioServer.to(nsp).emit(data.metadata.deviceid, data);
     this.ioServer.to(nsp).emit('all', data);
@@ -108,7 +118,7 @@ class SocketIOHandler {
   }
 
   getToken(tenant:string) {
-    let topicManager = new TopicManager(tenant);
+    let topicManager = TopicManagerBuilder.get(tenant);
     topicManager.getCreateTopic('device-data', (error?:any, topic?:string) => {
       if (error || !topic) {
         console.error('Failed to find appropriate topic for tenant: ',
